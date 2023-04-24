@@ -28,10 +28,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       throw new Error('无权操作该模型');
     }
 
-    const replaceText = text.replace(/(\\n|\n)+/g, ' ');
+    const replaceText = text.replace(/\\n/g, '\n');
 
     // 文本拆分成 chunk
-    const chunks = replaceText.match(/[^!?.。]+[!?.。]/g) || [];
+    const chunks = replaceText.split('\n').filter((item) => item.trim());
 
     const textList: string[] = [];
     let splitText = '';
@@ -41,11 +41,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const tokens = encode(splitText + chunk).length;
       if (tokens >= 4000) {
         // 超过 4000，不要这块内容
-        textList.push(splitText);
+        splitText && textList.push(splitText);
         splitText = chunk;
       } else if (tokens >= 3000) {
         // 超过 3000，取内容
-        textList.push(splitText + chunk);
+        splitText && textList.push(splitText + chunk);
         splitText = '';
       } else {
         //没超过 3000，继续添加

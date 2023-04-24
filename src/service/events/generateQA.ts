@@ -6,20 +6,22 @@ import type { ChatCompletionRequestMessage } from 'openai';
 import { ChatModelNameEnum } from '@/constants/model';
 import { pushSplitDataBill } from '@/service/events/pushBill';
 import { generateVector } from './generateVector';
-import { connectRedis } from '../redis';
-import { VecModelDataPrefix } from '@/constants/redis';
-import { customAlphabet } from 'nanoid';
+import { openaiError2 } from '../errorCode';
+import { PgClient } from '@/service/pg';
 import { ModelSplitDataSchema } from '@/types/mongoSchema';
-const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz1234567890', 12);
 
 export async function generateQA(next = false): Promise<any> {
+  if (process.env.queueTask !== '1') {
+    fetch(process.env.parentUrl || '');
+    return;
+  }
   if (global.generatingQA === true && !next) return;
+
   global.generatingQA = true;
 
   let dataId = null;
 
   try {
-    const redis = await connectRedis();
     // 找出一个需要生成的 dataItem
     const data = await SplitData.aggregate([
       { $match: { textList: { $exists: true, $ne: [] } } },
@@ -67,9 +69,9 @@ export async function generateQA(next = false): Promise<any> {
     const chatAPI = getOpenAIApi(userApiKey || systemKey);
     const systemPrompt: ChatCompletionRequestMessage = {
       role: 'system',
-      content: `${
-        dataItem.prompt || '下面是一段长文本'
-      },请从中提取出5至30个问题和答案,并按以下格式返回: Q1:\nA1:\nQ2:\nA2:\n`
+      content: `你是出题官.${
+        dataItem.prompt || '下面是"一段长文本"'
+      },从中选出5至20个题目和答案,题目包含问答题,计算题,代码题等.答案要详细.按格式返回: Q1:\nA1:\nQ2:\nA2:\n`
     };
 
     // 请求 chatgpt 获取回答
@@ -97,6 +99,7 @@ export async function generateQA(next = false): Promise<any> {
           .then((res) => {
             const rawContent = res?.data.choices[0].message?.content || ''; // chatgpt 原本的回复
             const result = splitText(res?.data.choices[0].message?.content || ''); // 格式化后的QA对
+            console.log(`split result length: `, result.length);
             // 计费
             pushSplitDataBill({
               isPay: !userApiKey && result.length > 0,
@@ -109,6 +112,11 @@ export async function generateQA(next = false): Promise<any> {
               rawContent,
               result
             };
+          })
+          .catch((err) => {
+            console.log('QA拆分错误');
+            console.log(err.response?.status, err.response?.statusText, err.response?.data);
+            return Promise.reject(err);
           })
       )
     );
@@ -128,31 +136,18 @@ export async function generateQA(next = false): Promise<any> {
       SplitData.findByIdAndUpdate(dataItem._id, {
         textList: dataItem.textList.slice(0, -5)
       }), // 删掉后5个数据
-      ...resultList.map((item) => {
-        // 插入 redis
-        return redis.sendCommand([
-          'HMSET',
-          `${VecModelDataPrefix}:${nanoid()}`,
-          'userId',
-          String(dataItem.userId),
-          'modelId',
-          String(dataItem.modelId),
-          'q',
-          item.q,
-          'text',
-          item.a,
-          'status',
-          'waiting'
-        ]);
+      // 生成的内容插入 pg
+      PgClient.insert('modelData', {
+        values: resultList.map((item) => [
+          { key: 'user_id', value: dataItem.userId },
+          { key: 'model_id', value: dataItem.modelId },
+          { key: 'q', value: item.q },
+          { key: 'a', value: item.a },
+          { key: 'status', value: 'waiting' }
+        ])
       })
     ]);
-
-    console.log(
-      '生成QA成功，time:',
-      `${(Date.now() - startTime) / 1000}s`,
-      'QA数量：',
-      resultList.length
-    );
+    console.log('生成QA成功，time:', `${(Date.now() - startTime) / 1000}s`);
 
     generateQA(true);
     generateVector();
@@ -165,8 +160,9 @@ export async function generateQA(next = false): Promise<any> {
       console.log('生成QA错误:', error);
     }
 
-    if (dataId && error?.response?.data?.error?.type === 'insufficient_quota') {
-      console.log('api 余额不足');
+    // 没有余额或者凭证错误时，拒绝任务
+    if (dataId && openaiError2[error?.response?.data?.error?.type]) {
+      console.log(openaiError2[error?.response?.data?.error?.type], '删除QA任务');
 
       await SplitData.findByIdAndUpdate(dataId, {
         textList: [],

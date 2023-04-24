@@ -75,10 +75,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         content: item.value
       })
     );
-    // console.log(formatPrompts);
+
     // 计算温度
     const temperature = modelConstantsData.maxTemperature * (model.temperature / 10);
-
+    // console.log({
+    //   model: model.service.chatModel,
+    //   temperature: temperature,
+    //   // max_tokens: modelConstantsData.maxToken,
+    //   messages: formatPrompts,
+    //   frequency_penalty: 0.5, // 越大，重复内容越少
+    //   presence_penalty: -0.5, // 越大，越容易出现新内容
+    //   stream: true,
+    //   stop: ['.!?。']
+    // });
     // 获取 chatAPI
     const chatAPI = getOpenAIApi(userApiKey || systemKey);
     // 发出请求

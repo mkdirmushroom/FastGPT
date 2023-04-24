@@ -1,39 +1,36 @@
-import { connectRedis } from '../redis';
-import { VecModelDataIdx } from '@/constants/redis';
-import { vectorToBuffer } from '@/utils/tools';
-import { ModelDataStatusEnum } from '@/constants/redis';
 import { openaiCreateEmbedding, getOpenApiKey } from '../utils/openai';
+import { openaiError2 } from '../errorCode';
+import { PgClient } from '@/service/pg';
 
 export async function generateVector(next = false): Promise<any> {
+  if (process.env.queueTask !== '1') {
+    fetch(process.env.parentUrl || '');
+    return;
+  }
+
   if (global.generatingVector && !next) return;
+
   global.generatingVector = true;
   let dataId = null;
+
   try {
-    const redis = await connectRedis();
-
     // 从找出一个 status = waiting 的数据
-    const searchRes = await redis.ft.search(
-      VecModelDataIdx,
-      `@status:{${ModelDataStatusEnum.waiting}}`,
-      {
-        RETURN: ['q', 'userId'],
-        LIMIT: {
-          from: 0,
-          size: 1
-        }
-      }
-    );
+    const searchRes = await PgClient.select('modelData', {
+      fields: ['id', 'q', 'user_id'],
+      where: [['status', 'waiting']],
+      limit: 1
+    });
 
-    if (searchRes.total === 0) {
+    if (searchRes.rowCount === 0) {
       console.log('没有需要生成 【向量】 的数据');
       global.generatingVector = false;
       return;
     }
 
     const dataItem: { id: string; q: string; userId: string } = {
-      id: searchRes.documents[0].id,
-      q: String(searchRes.documents[0]?.value?.q || ''),
-      userId: String(searchRes.documents[0]?.value?.userId || '')
+      id: searchRes.rows[0].id,
+      q: searchRes.rows[0].q,
+      userId: searchRes.rows[0].user_id
     };
 
     dataId = dataItem.id;
@@ -46,7 +43,9 @@ export async function generateVector(next = false): Promise<any> {
       systemKey = res.systemKey;
     } catch (error: any) {
       if (error?.code === 501) {
-        await redis.del(dataItem.id);
+        await PgClient.delete('modelData', {
+          where: [['id', dataId]]
+        });
         generateVector(true);
         return;
       }
@@ -62,15 +61,14 @@ export async function generateVector(next = false): Promise<any> {
       apiKey: userApiKey || systemKey
     });
 
-    // 更新 redis 向量和状态数据
-    await redis.sendCommand([
-      'HMSET',
-      dataItem.id,
-      'vector',
-      vectorToBuffer(vector),
-      'status',
-      ModelDataStatusEnum.ready
-    ]);
+    // 更新 pg 向量和状态数据
+    await PgClient.update('modelData', {
+      values: [
+        { key: 'vector', value: `[${vector}]` },
+        { key: 'status', value: `ready` }
+      ],
+      where: [['id', dataId]]
+    });
 
     console.log(`生成向量成功: ${dataItem.id}`);
 
@@ -84,10 +82,12 @@ export async function generateVector(next = false): Promise<any> {
       console.log('生成向量错误:', error);
     }
 
-    if (dataId && error?.response?.data?.error?.type === 'insufficient_quota') {
-      console.log('api 余额不足,删除 redis 模型数据');
-      const redis = await connectRedis();
-      redis.del(dataId);
+    // 没有余额或者凭证错误时，拒绝任务
+    if (dataId && openaiError2[error?.response?.data?.error?.type]) {
+      console.log('删除向量生成任务记录');
+      await PgClient.delete('modelData', {
+        where: [['id', dataId]]
+      });
       generateVector(true);
       return;
     }

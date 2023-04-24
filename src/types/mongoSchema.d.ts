@@ -11,16 +11,21 @@ export type ServiceName = 'openai';
 
 export interface UserModelSchema {
   _id: string;
-  email: string;
+  username: string;
   password: string;
   balance: number;
+  inviterId?: string;
+  promotionAmount: number;
   openaiKey: string;
   createTime: number;
+  promotion: {
+    rate: number;
+  };
 }
 
 export interface AuthCodeSchema {
   _id: string;
-  email: string;
+  username: string;
   code: string;
   type: 'register' | 'findPassword';
   expiredTime: number;
@@ -64,11 +69,8 @@ export interface ModelDataSchema {
   _id: string;
   modelId: string;
   userId: string;
-  text: string;
-  q: {
-    id: string;
-    text: string;
-  };
+  a: string;
+  q: string;
   status: ModelDataType;
 }
 
@@ -162,4 +164,13 @@ export interface OpenApiSchema {
   createTime: Date;
   lastUsedTime?: Date;
   apiKey: String;
+}
+
+export interface PromotionRecordSchema {
+  _id: string;
+  userId: string; // 收益人
+  objUId?: string; // 目标对象（如果是withdraw则为空）
+  type: 'invite' | 'shareModel' | 'withdraw';
+  createTime: Date; // 记录时间
+  amount: number;
 }
