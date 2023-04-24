@@ -243,11 +243,12 @@ const SlideBar = ({
         </>
       </RenderButton>
 
-      <Flex alignItems={'center'} mr={4}>
-        <Box flex={1}>
+      <Flex alignItems={'center'} m={3}>
+        {/* <Box flex={1}>
           <RenderButton onClick={onOpenWx}>交流群</RenderButton>
-        </Box>
+        </Box> */}
         <IconButton
+          flex={1}
           icon={colorMode === 'light' ? <MoonIcon /> : <SunIcon />}
           aria-label={''}
           variant={'outline'}

@@ -1,13 +1,5 @@
 ## 欢迎使用 Fast GPT
 
-[Git 仓库](https://github.com/c121914yu/FastGPT)
-
-### 交流群/问题反馈
-扫码满了，加个小号，定时拉
-wx号: fastgpt123
-![](/imgs/wx300.jpg)
-
-
 ### 快速开始
 1. 使用邮箱注册账号。  
 2. 进入账号页面，添加关联账号，目前只有 openai 的账号可以添加，直接去 openai 官网，把 API Key 粘贴过来。  

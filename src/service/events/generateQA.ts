@@ -170,7 +170,7 @@ export async function generateQA(next = false): Promise<any> {
 
       await SplitData.findByIdAndUpdate(dataId, {
         textList: [],
-        errorText: 'api 余额不足'
+        errorText: 'api 不足'
       });
 
       generateQA(true);
