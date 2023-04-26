@@ -8,10 +8,11 @@ import mongoose from 'mongoose';
 
 export const getOpenAIApi = (apiKey: string) => {
   const configuration = new Configuration({
-    apiKey
+    apiKey,
+    basePath: process.env.OPENAI_BASE_URL
   });
 
-  return new OpenAIApi(configuration, undefined);
+  return new OpenAIApi(configuration);
 };
 
 // 模型使用权校验

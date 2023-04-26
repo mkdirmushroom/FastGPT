@@ -1,12 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { connectToDatabase, Model } from '@/service/mongo';
 import {
-  httpsAgent,
+  axiosConfig,
   systemPromptFilter,
   authOpenApiKey,
   openaiChatFilter
 } from '@/service/utils/tools';
-import { ChatCompletionRequestMessage, ChatCompletionRequestMessageRoleEnum } from 'openai';
 import { ChatItemType } from '@/types/chat';
 import { jsonRes } from '@/service/response';
 import { PassThrough } from 'stream';
@@ -166,12 +165,13 @@ ${
         messages: filterPrompts,
         frequency_penalty: 0.5, // 越大，重复内容越少
         presence_penalty: -0.5, // 越大，越容易出现新内容
-        stream: isStream
+        stream: isStream,
+        stop: ['.!?。']
       },
       {
         timeout: 180000,
         responseType: isStream ? 'stream' : 'json',
-        httpsAgent: httpsAgent(true)
+        ...axiosConfig
       }
     );
 

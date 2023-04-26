@@ -2,7 +2,7 @@ import type { NextApiResponse } from 'next';
 import type { PassThrough } from 'stream';
 import { createParser, ParsedEvent, ReconnectInterval } from 'eventsource-parser';
 import { getOpenAIApi } from '@/service/utils/auth';
-import { httpsAgent } from './tools';
+import { axiosConfig } from './tools';
 import { User } from '../models/user';
 import { formatPrice } from '@/utils/user';
 import { embeddingModel } from '@/constants/model';
@@ -85,7 +85,7 @@ export const openaiCreateEmbedding = async ({
       },
       {
         timeout: 60000,
-        httpsAgent: httpsAgent(isPay)
+        ...axiosConfig
       }
     )
     .then((res) => ({
@@ -123,9 +123,9 @@ export const gpt35StreamResponse = ({
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('X-Accel-Buffering', 'no');
       res.setHeader('Cache-Control', 'no-cache, no-transform');
+      stream.pipe(res);
 
       let responseContent = '';
-      stream.pipe(res);
 
       const onParse = async (event: ParsedEvent | ReconnectInterval) => {
         if (event.type !== 'event') return;

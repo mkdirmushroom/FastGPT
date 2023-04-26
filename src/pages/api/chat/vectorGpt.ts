@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { connectToDatabase } from '@/service/mongo';
 import { authChat } from '@/service/utils/auth';
-import { httpsAgent, systemPromptFilter, openaiChatFilter } from '@/service/utils/tools';
+import { axiosConfig, systemPromptFilter, openaiChatFilter } from '@/service/utils/tools';
 import { ChatItemType } from '@/types/chat';
 import { jsonRes } from '@/service/response';
 import { PassThrough } from 'stream';
@@ -144,12 +144,13 @@ ${
         messages: filterPrompts,
         frequency_penalty: 0.5, // 越大，重复内容越少
         presence_penalty: -0.5, // 越大，越容易出现新内容
-        stream: true
+        stream: true,
+        stop: ['.!?。']
       },
       {
         timeout: 40000,
         responseType: 'stream',
-        httpsAgent: httpsAgent(!userApiKey)
+        ...axiosConfig
       }
     );
 
