@@ -20,14 +20,14 @@ const Home = () => {
         <Markdown source={data} isChatting={false} />
       </Card>
 
-      <Card p={5} mt={4} textAlign={'center'}>
+      {/* <Card p={5} mt={4} textAlign={'center'}>
         <Box>
           <Link href="https://beian.miit.gov.cn/" target="_blank">
             浙ICP备2023011255号-1
           </Link>
         </Box>
         <Box>Made by FastGpt Team.</Box>
-      </Card>
+      </Card> */}
     </>
   );
 };
