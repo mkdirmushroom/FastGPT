@@ -3,12 +3,14 @@ import { jsonRes } from '@/service/response';
 import { ChatItemType } from '@/types/chat';
 import { connectToDatabase, Chat } from '@/service/mongo';
 import { authModel } from '@/service/utils/auth';
-import { authToken } from '@/service/utils/tools';
+import { authToken } from '@/service/utils/auth';
+import mongoose from 'mongoose';
 
 /* 聊天内容存存储 */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    const { chatId, modelId, prompts } = req.body as {
+    const { chatId, modelId, prompts, newChatId } = req.body as {
+      newChatId: '' | string;
       chatId: '' | string;
       modelId: string;
       prompts: ChatItemType[];
@@ -23,14 +25,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await connectToDatabase();
 
     const content = prompts.map((item) => ({
+      _id: new mongoose.Types.ObjectId(item._id),
       obj: item.obj,
-      value: item.value
+      value: item.value,
+      systemPrompt: item.systemPrompt
     }));
+
+    await authModel({ modelId, userId, authOwner: false });
 
     // 没有 chatId, 创建一个对话
     if (!chatId) {
-      await authModel(modelId, userId);
       const { _id } = await Chat.create({
+        _id: newChatId ? new mongoose.Types.ObjectId(newChatId) : undefined,
         userId,
         modelId,
         content,

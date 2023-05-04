@@ -1,6 +1,6 @@
 import mammoth from 'mammoth';
 import Papa from 'papaparse';
-import { countChatTokens } from './tools';
+import { getOpenAiEncMap } from './chat/openai';
 
 /**
  * 读取 txt 文件内容
@@ -145,7 +145,7 @@ export const fileDownload = ({
  * slideLen - The size of the before and after Text
  * maxLen > slideLen
  */
-export const splitText = ({
+export const splitText_token = ({
   text,
   maxLen,
   slideLen
@@ -154,37 +154,103 @@ export const splitText = ({
   maxLen: number;
   slideLen: number;
 }) => {
-  const textArr =
-    text.match(/[！？。\n.]+|[^\s]+/g)?.filter((item) => {
-      const text = item.replace(/(\\n)/g, '\n').trim();
-      if (text && text !== '\n') return true;
-      return false;
-    }) || [];
+  const enc = getOpenAiEncMap()['gpt-3.5-turbo'];
+  // filter empty text. encode sentence
+  const encodeText = enc.encode(text);
 
-  const chunks: { sum: number; arr: string[] }[] = [{ sum: 0, arr: [] }];
+  const chunks: string[] = [];
+  let tokens = 0;
 
-  for (let i = 0; i < textArr.length; i++) {
-    const tokenLen = countChatTokens({ messages: [{ role: 'system', content: textArr[i] }] });
-    chunks[chunks.length - 1].sum += tokenLen;
-    chunks[chunks.length - 1].arr.push(textArr[i]);
+  let startIndex = 0;
+  let endIndex = Math.min(startIndex + maxLen, encodeText.length);
+  let chunkEncodeArr = encodeText.slice(startIndex, endIndex);
 
-    //  current length is over maxLen. create new chunk
-    if (chunks[chunks.length - 1].sum + tokenLen >= maxLen) {
-      // get slide len text as the initial value
-      const chunk: { sum: number; arr: string[] } = { sum: 0, arr: [] };
-      for (let j = chunks[chunks.length - 1].arr.length - 1; j >= 0; j--) {
-        const chunkText = chunks[chunks.length - 1].arr[j];
-        const tokenLen = countChatTokens({ messages: [{ role: 'system', content: chunkText }] });
-        chunk.sum += tokenLen;
-        chunk.arr.unshift(chunkText);
+  const decoder = new TextDecoder();
 
-        if (chunk.sum >= slideLen) {
-          break;
-        }
-      }
-      chunks.push(chunk);
-    }
+  while (startIndex < encodeText.length) {
+    tokens += chunkEncodeArr.length;
+    chunks.push(decoder.decode(enc.decode(chunkEncodeArr)));
+
+    startIndex += maxLen - slideLen;
+    endIndex = Math.min(startIndex + maxLen, encodeText.length);
+    chunkEncodeArr = encodeText.slice(Math.min(encodeText.length - slideLen, startIndex), endIndex);
   }
-  const result = chunks.map((item) => item.arr.join(''));
-  return result;
+
+  return {
+    chunks,
+    tokens
+  };
 };
+
+export const fileToBase64 = (file: File) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = (error) => reject(error);
+  });
+};
+
+/**
+ * compress image. response base64
+ * @param maxSize The max size of the compressed image
+ */
+export const compressImg = ({
+  file,
+  maxW = 200,
+  maxH = 200,
+  maxSize = 1024 * 100
+}: {
+  file: File;
+  maxW?: number;
+  maxH?: number;
+  maxSize?: number;
+}) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+      const img = new Image();
+      // @ts-ignore
+      img.src = reader.result;
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxW) {
+            height *= maxW / width;
+            width = maxW;
+          }
+        } else {
+          if (height > maxH) {
+            width *= maxH / height;
+            height = maxH;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) {
+          return reject('压缩图片异常');
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressedDataUrl = canvas.toDataURL(file.type, 1);
+        // 移除 canvas 元素
+        canvas.remove();
+
+        if (compressedDataUrl.length > maxSize) {
+          return reject('图片太大了');
+        }
+        resolve(compressedDataUrl);
+      };
+    };
+    reader.onerror = (err) => {
+      console.log(err);
+      reject('压缩图片异常');
+    };
+  });

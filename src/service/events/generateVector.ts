@@ -1,10 +1,15 @@
-import { openaiCreateEmbedding, getOpenApiKey } from '../utils/openai';
+import { openaiCreateEmbedding } from '../utils/chat/openai';
+import { getApiKey } from '../utils/auth';
 import { openaiError2 } from '../errorCode';
 import { PgClient } from '@/service/pg';
 
 export async function generateVector(next = false): Promise<any> {
   if (process.env.queueTask !== '1') {
-    fetch(process.env.parentUrl || '');
+    try {
+      fetch(process.env.parentUrl || '');
+    } catch (error) {
+      console.log('parentUrl fetch error', error);
+    }
     return;
   }
 
@@ -36,11 +41,10 @@ export async function generateVector(next = false): Promise<any> {
     dataId = dataItem.id;
 
     // 获取 openapi Key
-    let userApiKey, systemKey;
+    let userOpenAiKey;
     try {
-      const res = await getOpenApiKey(dataItem.userId);
-      userApiKey = res.userApiKey;
-      systemKey = res.systemKey;
+      const res = await getApiKey({ model: 'gpt-3.5-turbo', userId: dataItem.userId });
+      userOpenAiKey = res.userOpenAiKey;
     } catch (error: any) {
       if (error?.code === 501) {
         await PgClient.delete('modelData', {
@@ -54,17 +58,16 @@ export async function generateVector(next = false): Promise<any> {
     }
 
     // 生成词向量
-    const { vector } = await openaiCreateEmbedding({
-      text: dataItem.q,
+    const { vectors } = await openaiCreateEmbedding({
+      textArr: [dataItem.q],
       userId: dataItem.userId,
-      isPay: !userApiKey,
-      apiKey: userApiKey || systemKey
+      userOpenAiKey
     });
 
     // 更新 pg 向量和状态数据
     await PgClient.update('modelData', {
       values: [
-        { key: 'vector', value: `[${vector}]` },
+        { key: 'vector', value: `[${vectors[0]}]` },
         { key: 'status', value: `ready` }
       ],
       where: [['id', dataId]]

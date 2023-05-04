@@ -16,8 +16,10 @@ import {
   MenuButton,
   MenuList,
   MenuItem,
-  Input
+  Input,
+  Tooltip
 } from '@chakra-ui/react';
+import { QuestionOutlineIcon } from '@chakra-ui/icons';
 import type { BoxProps } from '@chakra-ui/react';
 import type { ModelDataItemType } from '@/types/model';
 import { ModelDataStatusMap } from '@/constants/model';
@@ -39,15 +41,16 @@ import InputModal, { FormData as InputDataType } from './InputDataModal';
 const SelectFileModal = dynamic(() => import('./SelectFileModal'));
 const SelectCsvModal = dynamic(() => import('./SelectCsvModal'));
 
-const ModelDataCard = ({ modelId }: { modelId: string }) => {
+const ModelDataCard = ({ modelId, isOwner }: { modelId: string; isOwner: boolean }) => {
   const { Loading, setIsLoading } = useLoading();
   const lastSearch = useRef('');
   const [searchText, setSearchText] = useState('');
   const tdStyles = useRef<BoxProps>({
     fontSize: 'xs',
+    minW: '150px',
     maxW: '500px',
-    whiteSpace: 'pre-wrap',
     maxH: '250px',
+    whiteSpace: 'pre-wrap',
     overflowY: 'auto'
   });
   const {
@@ -132,51 +135,54 @@ const ModelDataCard = ({ modelId }: { modelId: string }) => {
     <>
       <Flex>
         <Box fontWeight={'bold'} fontSize={'lg'} flex={1} mr={2}>
-          模型数据: {total}组
-          <Box as={'span'} fontSize={'sm'}>
-            （测试版本）
-          </Box>
+          知识库数据: {total}组
         </Box>
-        <IconButton
-          icon={<RepeatIcon />}
-          aria-label={'refresh'}
-          variant={'outline'}
-          mr={4}
-          size={'sm'}
-          onClick={() => refetchData(pageNum)}
-        />
-        <Button
-          variant={'outline'}
-          mr={2}
-          size={'sm'}
-          isLoading={isLoadingExport}
-          title={'换行数据导出时，会进行格式转换'}
-          onClick={() => onclickExport()}
-        >
-          导出
-        </Button>
-        <Menu autoSelect={false}>
-          <MenuButton as={Button} size={'sm'}>
-            导入
-          </MenuButton>
-          <MenuList>
-            <MenuItem
-              onClick={() =>
-                setEditInputData({
-                  a: '',
-                  q: ''
-                })
-              }
+        {isOwner && (
+          <>
+            <IconButton
+              icon={<RepeatIcon />}
+              aria-label={'refresh'}
+              variant={'outline'}
+              mr={4}
+              size={'sm'}
+              onClick={() => refetchData(pageNum)}
+            />
+            <Button
+              variant={'outline'}
+              mr={2}
+              size={'sm'}
+              isLoading={isLoadingExport}
+              title={'换行数据导出时，会进行格式转换'}
+              onClick={() => onclickExport()}
             >
-              手动输入
-            </MenuItem>
-            <MenuItem onClick={onOpenSelectFileModal}>文本/文件拆分</MenuItem>
-            <MenuItem onClick={onOpenSelectCsvModal}>csv 问答对导入</MenuItem>
-          </MenuList>
-        </Menu>
+              导出
+            </Button>
+            <Menu autoSelect={false}>
+              <MenuButton as={Button} size={'sm'}>
+                导入
+              </MenuButton>
+              <MenuList>
+                <MenuItem
+                  onClick={() =>
+                    setEditInputData({
+                      a: '',
+                      q: ''
+                    })
+                  }
+                >
+                  手动输入
+                </MenuItem>
+                <MenuItem onClick={onOpenSelectFileModal}>文本/文件拆分</MenuItem>
+                <MenuItem onClick={onOpenSelectCsvModal}>csv 问答对导入</MenuItem>
+              </MenuList>
+            </Menu>
+          </>
+        )}
       </Flex>
       <Flex mt={4}>
-        {splitDataLen > 0 && <Box fontSize={'xs'}>{splitDataLen}条数据正在拆分，请耐心等待...</Box>}
+        {isOwner && splitDataLen > 0 && (
+          <Box fontSize={'xs'}>{splitDataLen}条数据正在拆分，请耐心等待...</Box>
+        )}
         <Box flex={1} />
         <Input
           maxW={'240px'}
@@ -204,10 +210,19 @@ const ModelDataCard = ({ modelId }: { modelId: string }) => {
           <Table variant={'simple'} w={'100%'}>
             <Thead>
               <Tr>
-                <Th>{'匹配的知识点'}</Th>
+                <Th>
+                  匹配的知识点
+                  <Tooltip
+                    label={
+                      '对话时，会将用户的问题和知识库的 "匹配知识点" 进行比较，找到最相似的前 n 条记录，将这些记录的 "匹配知识点"+"补充知识点" 作为 chatgpt 的系统提示词。'
+                    }
+                  >
+                    <QuestionOutlineIcon ml={1} />
+                  </Tooltip>
+                </Th>
                 <Th>补充知识</Th>
                 <Th>状态</Th>
-                <Th>操作</Th>
+                {isOwner && <Th>操作</Th>}
               </Tr>
             </Thead>
             <Tbody>
@@ -220,33 +235,35 @@ const ModelDataCard = ({ modelId }: { modelId: string }) => {
                     <Box {...tdStyles.current}>{item.a || '-'}</Box>
                   </Td>
                   <Td>{ModelDataStatusMap[item.status]}</Td>
-                  <Td>
-                    <IconButton
-                      mr={5}
-                      icon={<EditIcon />}
-                      variant={'outline'}
-                      aria-label={'delete'}
-                      size={'sm'}
-                      onClick={() =>
-                        setEditInputData({
-                          dataId: item.id,
-                          q: item.q,
-                          a: item.a
-                        })
-                      }
-                    />
-                    <IconButton
-                      icon={<DeleteIcon />}
-                      variant={'outline'}
-                      colorScheme={'gray'}
-                      aria-label={'delete'}
-                      size={'sm'}
-                      onClick={async () => {
-                        await delOneModelData(item.id);
-                        refetchData(pageNum);
-                      }}
-                    />
-                  </Td>
+                  {isOwner && (
+                    <Td>
+                      <IconButton
+                        mr={5}
+                        icon={<EditIcon />}
+                        variant={'outline'}
+                        aria-label={'delete'}
+                        size={'sm'}
+                        onClick={() =>
+                          setEditInputData({
+                            dataId: item.id,
+                            q: item.q,
+                            a: item.a
+                          })
+                        }
+                      />
+                      <IconButton
+                        icon={<DeleteIcon />}
+                        variant={'outline'}
+                        colorScheme={'gray'}
+                        aria-label={'delete'}
+                        size={'sm'}
+                        onClick={async () => {
+                          await delOneModelData(item.id);
+                          refetchData(pageNum);
+                        }}
+                      />
+                    </Td>
+                  )}
                 </Tr>
               ))}
             </Tbody>

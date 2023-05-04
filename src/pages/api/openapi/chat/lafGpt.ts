@@ -1,20 +1,14 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { connectToDatabase, Model } from '@/service/mongo';
-import { getOpenAIApi } from '@/service/utils/auth';
-import { authOpenApiKey } from '@/service/utils/tools';
-import { axiosConfig, openaiChatFilter, systemPromptFilter } from '@/service/utils/tools';
-import { ChatItemType } from '@/types/chat';
+import { connectToDatabase } from '@/service/mongo';
+import { authOpenApiKey, authModel, getApiKey } from '@/service/utils/auth';
+import { resStreamResponse, modelServiceToolMap } from '@/service/utils/chat';
+import { ChatItemSimpleType } from '@/types/chat';
 import { jsonRes } from '@/service/response';
 import { PassThrough } from 'stream';
-import {
-  ModelNameEnum,
-  modelList,
-  ModelVectorSearchModeMap,
-  ChatModelEnum
-} from '@/constants/model';
+import { ChatModelMap, ModelVectorSearchModeMap } from '@/constants/model';
 import { pushChatBill } from '@/service/events/pushBill';
-import { openaiCreateEmbedding, gpt35StreamResponse } from '@/service/utils/openai';
-import { PgClient } from '@/service/pg';
+import { searchKb } from '@/service/plugins/searchKb';
+import { ChatRoleEnum } from '@/constants/chat';
 
 /* 发送提示词 */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -38,7 +32,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       modelId,
       isStream = true
     } = req.body as {
-      prompt: ChatItemType;
+      prompt: ChatItemSimpleType;
       modelId: string;
       isStream: boolean;
     };
@@ -51,34 +45,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let startTime = Date.now();
 
     /* 凭证校验 */
-    const { apiKey, userId } = await authOpenApiKey(req);
+    const { userId } = await authOpenApiKey(req);
 
     /* 查找数据库里的模型信息 */
-    const model = await Model.findById(modelId);
-    if (!model) {
-      throw new Error('找不到模型');
-    }
+    const { model } = await authModel({
+      userId,
+      modelId
+    });
 
-    const modelConstantsData = modelList.find((item) => item.model === ModelNameEnum.VECTOR_GPT);
-    if (!modelConstantsData) {
-      throw new Error('模型已下架');
-    }
+    /* get api key */
+    const { systemAuthKey: apiKey } = await getApiKey({
+      model: model.chat.chatModel,
+      userId,
+      mustPay: true
+    });
+
+    const modelConstantsData = ChatModelMap[model.chat.chatModel];
+
     console.log('laf gpt start');
 
-    // 获取 chatAPI
-    const chatAPI = getOpenAIApi(apiKey);
-
     // 请求一次 chatgpt 拆解需求
-    const promptResponse = await chatAPI.createChatCompletion(
-      {
-        model: ChatModelEnum.GPT35,
-        temperature: 0,
-        frequency_penalty: 0.5, // 越大，重复内容越少
-        presence_penalty: -0.5, // 越大，越容易出现新内容
-        messages: [
-          {
-            role: 'system',
-            content: `服务端逻辑生成器.根据用户输入的需求,拆解成 laf 云函数实现的步骤,只返回步骤,按格式返回步骤: 1.\n2.\n3.\n ......
+    const { responseText: resolveText, totalTokens: resolveTokens } = await modelServiceToolMap[
+      model.chat.chatModel
+    ].chatCompletion({
+      apiKey,
+      temperature: 0,
+      messages: [
+        {
+          obj: ChatRoleEnum.System,
+          value: `服务端逻辑生成器.根据用户输入的需求,拆解成 laf 云函数实现的步骤,只返回步骤,按格式返回步骤: 1.\n2.\n3.\n ......
 下面是一些例子:
 一个 hello world 例子
 1. 返回字符串: "hello world"
@@ -111,111 +106,66 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 5. 获取当前时间,记录为 updateTime.
 6. 更新数据库数据,表为"blogs",更新符合 blogId 的记录的内容为{blogText, tags, updateTime}.
 7. 返回结果 "更新博客记录成功"`
-          },
-          {
-            role: 'user',
-            content: prompt.value
-          }
-        ]
-      },
-      {
-        timeout: 180000,
-        ...axiosConfig
-      }
-    );
-
-    const promptResolve = promptResponse.data.choices?.[0]?.message?.content || '';
-    if (!promptResolve) {
-      throw new Error('gpt 异常');
-    }
-
-    prompt.value += ` ${promptResolve}`;
-    console.log('prompt resolve success, time:', `${(Date.now() - startTime) / 1000}s`);
-
-    // 获取提示词的向量
-    const { vector: promptVector } = await openaiCreateEmbedding({
-      isPay: true,
-      apiKey,
-      userId,
-      text: prompt.value
+        },
+        {
+          obj: ChatRoleEnum.Human,
+          value: prompt.value
+        }
+      ],
+      stream: false
     });
+
+    prompt.value += ` ${resolveText}`;
+    console.log('prompt resolve success, time:', `${(Date.now() - startTime) / 1000}s`);
 
     // 读取对话内容
     const prompts = [prompt];
 
-    // 相似度搜索
-    const similarity = ModelVectorSearchModeMap[model.search.mode]?.similarity || 0.22;
-    const vectorSearch = await PgClient.select<{ id: string; q: string; a: string }>('modelData', {
-      fields: ['id', 'q', 'a'],
-      order: [{ field: 'vector', mode: `<=> '[${promptVector}]'` }],
-      where: [
-        ['model_id', model._id],
-        'AND',
-        ['user_id', userId],
-        'AND',
-        `vector <=> '[${promptVector}]' < ${similarity}`
-      ],
-      limit: 30
-    });
-
-    const formatRedisPrompt: string[] = vectorSearch.rows.map((item) => `${item.q}\n${item.a}`);
-
-    // system 筛选，最多 2500 tokens
-    const systemPrompt = systemPromptFilter({
-      model: model.service.chatModel,
-      prompts: formatRedisPrompt,
-      maxTokens: 2500
-    });
-
-    prompts.unshift({
-      obj: 'SYSTEM',
-      value: `${model.systemPrompt} 知识库是最新的,下面是知识库内容:${systemPrompt}`
-    });
-
-    // 控制上下文 tokens 数量，防止超出
-    const filterPrompts = openaiChatFilter({
-      model: model.service.chatModel,
+    // 获取向量匹配到的提示词
+    const { searchPrompt } = await searchKb({
+      similarity: ModelVectorSearchModeMap[model.chat.searchMode]?.similarity,
       prompts,
-      maxTokens: modelConstantsData.contextMaxToken - 500
+      model,
+      userId
     });
 
-    // console.log(filterPrompts);
-    // 计算温度
-    const temperature = modelConstantsData.maxTemperature * (model.temperature / 10);
+    searchPrompt && prompts.unshift(searchPrompt);
 
-    // 发出请求
-    const chatResponse = await chatAPI.createChatCompletion(
-      {
-        model: model.service.chatModel,
-        temperature,
-        messages: filterPrompts,
-        frequency_penalty: 0.5, // 越大，重复内容越少
-        presence_penalty: -0.5, // 越大，越容易出现新内容
-        stream: isStream
-      },
-      {
-        timeout: 180000,
-        responseType: isStream ? 'stream' : 'json',
-        ...axiosConfig
-      }
+    // 计算温度
+    const temperature = (modelConstantsData.maxTemperature * (model.chat.temperature / 10)).toFixed(
+      2
     );
 
-    console.log('code response. time:', `${(Date.now() - startTime) / 1000}s`);
+    // 发出请求
+    const { streamResponse, responseMessages, responseText, totalTokens } =
+      await modelServiceToolMap[model.chat.chatModel].chatCompletion({
+        apiKey,
+        temperature: +temperature,
+        messages: prompts,
+        stream: isStream
+      });
 
-    step = 1;
-    let responseContent = '';
+    console.log('api response time:', `${(Date.now() - startTime) / 1000}s`);
+
+    let textLen = resolveText.length;
+    let tokens = resolveTokens;
 
     if (isStream) {
-      const streamResponse = await gpt35StreamResponse({
+      step = 1;
+      const { finishMessages, totalTokens } = await resStreamResponse({
+        model: model.chat.chatModel,
         res,
         stream,
-        chatResponse
+        chatResponse: streamResponse,
+        prompts
       });
-      responseContent = streamResponse.responseContent;
+      textLen += finishMessages.map((item) => item.value).join('').length;
+      tokens += totalTokens;
     } else {
-      responseContent = chatResponse.data.choices?.[0]?.message?.content || '';
+      textLen += responseMessages.map((item) => item.value).join('').length;
+      tokens += totalTokens;
       jsonRes(res, {
-        data: responseContent
+        data: responseText
       });
     }
 
@@ -223,9 +173,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     pushChatBill({
       isPay: true,
-      modelName: model.service.modelName,
+      chatModel: model.chat.chatModel,
       userId,
-      messages: filterPrompts.concat({ role: 'assistant', content: responseContent })
+      textLen,
+      tokens
     });
   } catch (err: any) {
     if (step === 1) {

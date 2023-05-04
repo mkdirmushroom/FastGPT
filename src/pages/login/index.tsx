@@ -13,6 +13,7 @@ const ForgetPasswordForm = dynamic(() => import('./components/ForgetPasswordForm
 
 const Login = () => {
   const router = useRouter();
+  const { lastRoute = '' } = router.query as { lastRoute: string };
   const { isPc } = useScreen();
   const [pageType, setPageType] = useState<`${PageTypeEnum}`>(PageTypeEnum.login);
   const { setUserInfo } = useUserStore();
@@ -20,9 +21,11 @@ const Login = () => {
   const loginSuccess = useCallback(
     (res: ResLogin) => {
       setUserInfo(res.user, res.token);
-      router.push('/model/list');
+      setTimeout(() => {
+        router.push(lastRoute ? decodeURIComponent(lastRoute) : '/model/list');
+      }, 100);
     },
-    [router, setUserInfo]
+    [lastRoute, router, setUserInfo]
   );
 
   function DynamicComponent({ type }: { type: `${PageTypeEnum}` }) {
@@ -42,12 +45,19 @@ const Login = () => {
   }, [router]);
 
   return (
-    <Box className={styles.loginPage} h={'100%'} p={isPc ? '10vh 10vw' : 0}>
+    <Flex
+      alignItems={'center'}
+      justifyContent={'center'}
+      className={styles.loginPage}
+      h={'100%'}
+      px={[0, '10vw']}
+    >
       <Flex
-        maxW={'1240px'}
-        m={'auto'}
-        backgroundColor={'#fff'}
         height="100%"
+        w={'100%'}
+        maxW={'1240px'}
+        maxH={['auto', '660px']}
+        backgroundColor={'#fff'}
         alignItems={'center'}
         justifyContent={'center'}
         p={10}
@@ -80,7 +90,7 @@ const Login = () => {
           <DynamicComponent type={pageType} />
         </Box>
       </Flex>
-    </Box>
+    </Flex>
   );
 };
 

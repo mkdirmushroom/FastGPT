@@ -1,5 +1,10 @@
-export type ChatItemType = {
-  obj: 'Human' | 'AI' | 'SYSTEM';
+import { ChatRoleEnum } from '@/constants/chat';
+
+export type ChatItemSimpleType = {
+  obj: `${ChatRoleEnum}`;
   value: string;
-  deleted?: boolean;
+  systemPrompt?: string;
 };
+export type ChatItemType = {
+  _id: string;
+} & ChatItemSimpleType;

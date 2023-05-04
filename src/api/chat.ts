@@ -24,6 +24,7 @@ export const delChatHistoryById = (id: string) => GET(`/chat/removeHistory?id=${
  */
 export const postSaveChat = (data: {
   modelId: string;
+  newChatId: '' | string;
   chatId: '' | string;
   prompts: ChatItemType[];
 }) => POST<string>('/chat/saveChat', data);
@@ -31,5 +32,5 @@ export const postSaveChat = (data: {
 /**
  * 删除一句对话
  */
-export const delChatRecordByIndex = (chatId: string, index: number) =>
-  DELETE(`/chat/delChatRecordByIndex?chatId=${chatId}&index=${index}`);
+export const delChatRecordByIndex = (chatId: string, contentId: string) =>
+  DELETE(`/chat/delChatRecordByContentId?chatId=${chatId}&contentId=${contentId}`);

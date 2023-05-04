@@ -3,7 +3,7 @@ import {
   ModelStatusEnum,
   ModelNameEnum,
   ModelVectorSearchModeEnum,
-  ChatModelEnum
+  ChatModelType
 } from '@/constants/model';
 import type { DataType } from './data';
 
@@ -31,19 +31,23 @@ export interface AuthCodeSchema {
 
 export interface ModelSchema {
   _id: string;
+  userId: string;
   name: string;
   avatar: string;
-  systemPrompt: string;
-  userId: string;
   status: `${ModelStatusEnum}`;
   updateTime: number;
-  temperature: number;
-  search: {
-    mode: `${ModelVectorSearchModeEnum}`;
+  chat: {
+    useKb: boolean;
+    searchMode: `${ModelVectorSearchModeEnum}`;
+    systemPrompt: string;
+    temperature: number;
+    chatModel: ChatModelType; // 聊天时用的模型，训练后就是训练的模型
   };
-  service: {
-    chatModel: `${ChatModelEnum}`; // 聊天时用的模型，训练后就是训练的模型
-    modelName: `${ModelNameEnum}`; // 底层模型名称，不会变
+  share: {
+    isShare: boolean;
+    isShareDetail: boolean;
+    intro: string;
+    collection: number;
   };
   security: {
     domain: string[];
@@ -56,6 +60,11 @@ export interface ModelSchema {
 
 export interface ModelPopulate extends ModelSchema {
   userId: UserModelSchema;
+}
+
+export interface CollectionSchema {
+  modelId: string;
+  userId: string;
 }
 
 export type ModelDataType = 0 | 1;

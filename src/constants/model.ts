@@ -1,51 +1,66 @@
 import type { ModelSchema } from '@/types/mongoSchema';
 
 export const embeddingModel = 'text-embedding-ada-002';
-export enum ChatModelEnum {
+export type EmbeddingModelType = 'text-embedding-ada-002';
+
+export enum OpenAiChatEnum {
   'GPT35' = 'gpt-3.5-turbo',
   'GPT4' = 'gpt-4',
   'GPT432k' = 'gpt-4-32k'
 }
-
-export enum ModelNameEnum {
-  GPT35 = 'gpt-3.5-turbo',
-  VECTOR_GPT = 'VECTOR_GPT'
+export enum ClaudeEnum {
+  'Claude' = 'Claude'
 }
 
-export const Model2ChatModelMap: Record<`${ModelNameEnum}`, `${ChatModelEnum}`> = {
-  [ModelNameEnum.GPT35]: 'gpt-3.5-turbo',
-  [ModelNameEnum.VECTOR_GPT]: 'gpt-3.5-turbo'
-};
+export type ChatModelType = `${OpenAiChatEnum}` | `${ClaudeEnum}`;
 
-export type ModelConstantsData = {
-  icon: 'model' | 'dbModel';
+export type ChatModelItemType = {
+  chatModel: ChatModelType;
   name: string;
-  model: `${ModelNameEnum}`;
-  trainName: string; // 空字符串代表不能训练
   contextMaxToken: number;
+  systemMaxToken: number;
   maxTemperature: number;
-  price: number; // 多少钱 / 1token，单位: 0.00001元
+  price: number;
 };
 
-export const modelList: ModelConstantsData[] = [
-  {
-    icon: 'model',
-    name: 'chatGPT',
-    model: ModelNameEnum.GPT35,
-    trainName: '',
+export const ChatModelMap = {
+  [OpenAiChatEnum.GPT35]: {
+    chatModel: OpenAiChatEnum.GPT35,
+    name: 'ChatGpt',
     contextMaxToken: 4096,
+    systemMaxToken: 3000,
     maxTemperature: 1.5,
     price: 3
   },
-  {
-    icon: 'dbModel',
-    name: '知识库',
-    model: ModelNameEnum.VECTOR_GPT,
-    trainName: 'vector',
-    contextMaxToken: 4096,
+  [OpenAiChatEnum.GPT4]: {
+    chatModel: OpenAiChatEnum.GPT4,
+    name: 'Gpt4',
+    contextMaxToken: 8000,
+    systemMaxToken: 4000,
+    maxTemperature: 1.5,
+    price: 30
+  },
+  [OpenAiChatEnum.GPT432k]: {
+    chatModel: OpenAiChatEnum.GPT432k,
+    name: 'Gpt4-32k',
+    contextMaxToken: 32000,
+    systemMaxToken: 4000,
+    maxTemperature: 1.5,
+    price: 30
+  },
+  [ClaudeEnum.Claude]: {
+    chatModel: ClaudeEnum.Claude,
+    name: 'Claude(免费体验)',
+    contextMaxToken: 9000,
+    systemMaxToken: 2500,
     maxTemperature: 1,
-    price: 3
+    price: 0
   }
+};
+
+export const chatModelList: ChatModelItemType[] = [
+  ChatModelMap[OpenAiChatEnum.GPT35],
+  ChatModelMap[ClaudeEnum.Claude]
 ];
 
 export enum ModelStatusEnum {
@@ -113,20 +128,24 @@ export const ModelVectorSearchModeMap: Record<
 };
 
 export const defaultModel: ModelSchema = {
-  _id: '',
-  userId: '',
-  name: 'modelName',
-  avatar: '',
+  _id: 'modelId',
+  userId: 'userId',
+  name: '模型名称',
+  avatar: '/icon/logo.png',
   status: ModelStatusEnum.pending,
   updateTime: Date.now(),
-  systemPrompt: '',
-  temperature: 5,
-  search: {
-    mode: ModelVectorSearchModeEnum.hightSimilarity
+  chat: {
+    useKb: false,
+    searchMode: ModelVectorSearchModeEnum.hightSimilarity,
+    systemPrompt: '',
+    temperature: 0,
+    chatModel: OpenAiChatEnum.GPT35
   },
-  service: {
-    chatModel: ModelNameEnum.GPT35,
-    modelName: ModelNameEnum.GPT35
+  share: {
+    isShare: false,
+    isShareDetail: false,
+    intro: '',
+    collection: 0
   },
   security: {
     domain: ['*'],
