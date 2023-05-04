@@ -57,7 +57,7 @@ const OpenApi = () => {
           MossAI Api
         </Box>
         <Box fontSize={'sm'} mt={2}>
-          MossAI Api 允许你将 Fast Gpt 的部分功能通过 api
+          MossAI Api 允许你将 Moss AI 的部分功能通过 api
           的形式接入到自己的应用中，例如：飞书、企业微信、客服助手。请注意保管你的 Api
           Key，不要泄露！
         </Box>

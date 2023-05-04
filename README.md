@@ -1,6 +1,6 @@
-# Fast GPT 
+# Moss AI 
 
-Fast GPT 允许你使用自己的 openai API KEY 来快速的调用 openai 接口，目前集成了 gpt35 和 embedding. 可构建自己的知识库。
+Moss AI 允许你使用自己的 openai API KEY 来快速的调用 openai 接口，目前集成了 gpt35 和 embedding. 可构建自己的知识库。
 
 ## 知识库原理
 ![KBProcess](docs/imgs/KBProcess.jpg?raw=true "KBProcess")
