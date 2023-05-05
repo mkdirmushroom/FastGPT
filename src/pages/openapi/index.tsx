@@ -54,17 +54,17 @@ const OpenApi = () => {
     <>
       <Card px={6} py={4} position={'relative'}>
         <Box fontSize={'xl'} fontWeight={'bold'}>
-          MossAI Api
+          MossAI API
         </Box>
         <Box fontSize={'sm'} mt={2}>
-          MossAI Api 允许你将 Moss AI 的部分功能通过 api
-          的形式接入到自己的应用中，例如：飞书、企业微信、客服助手。请注意保管你的 Api
+          MossAI API 允许你将 Moss AI 的部分功能通过 API
+          的形式接入到自己的应用中，例如：飞书、企业微信、客服助手。请注意保管你的 API
           Key，不要泄露！
         </Box>
         <Box
           my={1}
           as="a"
-          href="https://kjqvjse66l.feishu.cn/docx/DmLedTWtUoNGX8xui9ocdUEjnNh"
+          href="https://v43nzpdx0s.feishu.cn/docx/UiyedJLiDo8tQmxdhbxcp9nJnYf"
           color={'blue.800'}
           textDecoration={'underline'}
           target={'_blank'}
@@ -75,7 +75,7 @@ const OpenApi = () => {
           <Table>
             <Thead>
               <Tr>
-                <Th>Api Key</Th>
+                <Th>API Key</Th>
                 <Th>创建时间</Th>
                 <Th>最后一次使用时间</Th>
                 <Th />
@@ -111,17 +111,17 @@ const OpenApi = () => {
           mt={5}
           isLoading={isCreating}
           isDisabled={apiKeys.length >= 5}
-          title={apiKeys.length >= 5 ? '最多五组 Api Key' : ''}
+          title={apiKeys.length >= 5 ? '最多五组 API Key' : ''}
           onClick={() => onclickCreateApiKey()}
         >
-          添加新的 Api Key
+          添加新的 API Key
         </Button>
         <Loading loading={isGetting || isDeleting} fixed={false} />
       </Card>
       <Modal isOpen={!!apiKey} onClose={() => setApiKey('')}>
         <ModalOverlay />
         <ModalContent>
-          <ModalHeader>Api Key</ModalHeader>
+          <ModalHeader>API Key</ModalHeader>
           <ModalCloseButton />
           <ModalBody mb={5}>
             请保管好你的Api Key
