@@ -281,7 +281,7 @@ const ModelEditForm = ({
               <Box fontWeight={'bold'}>Tips</Box>
               <Box mt={1} as={'ul'} pl={4}>
                 <li>
-                  开启模型分享后，你的模型将会出现在共享市场，可供 FastGpt
+                  开启模型分享后，你的模型将会出现在共享市场，可供 MossAI
                   所有用户使用。用户使用时不会消耗你的 tokens，而是消耗使用者的 tokens。
                 </li>
                 <li>开启分享详情后，其他用户可以查看该模型的特有数据：温度、提示词和数据集。</li>
