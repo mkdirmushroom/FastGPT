@@ -51,7 +51,7 @@ const OpenApi = () => {
   });
 
   return (
-    <>
+    <Box py={[5, 10]} px={'5vw'}>
       <Card px={6} py={4} position={'relative'}>
         <Box fontSize={'xl'} fontWeight={'bold'}>
           MossAI API
@@ -65,7 +65,7 @@ const OpenApi = () => {
           my={1}
           as="a"
           href="https://v43nzpdx0s.feishu.cn/docx/UiyedJLiDo8tQmxdhbxcp9nJnYf"
-          color={'blue.800'}
+          color={'myBlue.800'}
           textDecoration={'underline'}
           target={'_blank'}
         >
@@ -131,7 +131,7 @@ const OpenApi = () => {
           </ModalBody>
         </ModalContent>
       </Modal>
-    </>
+    </Box>
   );
 };
 
