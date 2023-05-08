@@ -151,7 +151,7 @@ const OpenApi = () => {
           <ModalBody textAlign={'center'}>
             <Image
               style={{ margin: 'auto' }}
-              src={'/imgs/wx300-2.jpg'}
+              src={'/imgs/wx300-2.png'}
               width={200}
               height={200}
               alt=""
