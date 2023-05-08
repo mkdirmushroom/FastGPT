@@ -116,14 +116,14 @@ const NumberSetting = () => {
             <Box>
               <strong>{userInfo?.balance}</strong> 元
             </Box>
-            <Button
+            {/* <Button
               size={['xs', 'sm']}
               w={['70px', '80px']}
               ml={5}
               onClick={() => setShowPay(true)}
             >
               充值
-            </Button>
+            </Button> */}
           </Flex>
           <Box fontSize={'xs'} color={'blackAlpha.500'}>
             如果填写了自己的 openai 账号，将不会计费
