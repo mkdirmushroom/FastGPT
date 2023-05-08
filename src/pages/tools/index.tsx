@@ -10,11 +10,11 @@ const list = [
     label: 'AI助手市场',
     link: '/model/share'
   },
-  {
-    icon: 'promotion',
-    label: '邀请好友',
-    link: '/promotion'
-  },
+  // {
+  //   icon: 'promotion',
+  //   label: '邀请好友',
+  //   link: '/promotion'
+  // },
   {
     icon: 'develop',
     label: '开发',

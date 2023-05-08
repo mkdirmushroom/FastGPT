@@ -35,12 +35,12 @@ const Navbar = () => {
         link: '/model/share',
         activeLink: ['/model/share']
       },
-      {
-        label: '邀请',
-        icon: 'promotion',
-        link: '/promotion',
-        activeLink: ['/promotion']
-      },
+      // {
+      //   label: '邀请',
+      //   icon: 'promotion',
+      //   link: '/promotion',
+      //   activeLink: ['/promotion']
+      // },
       {
         label: '开发',
         icon: 'develop',
