@@ -1,4 +1,4 @@
-SERVICE_NAME=fast-gpt
+SERVICE_NAME=fastgpt
 # Image URL to use all building/pushing image targets
 IMG ?= $(SERVICE_NAME):latest
 
