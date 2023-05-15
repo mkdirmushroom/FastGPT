@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState, useMemo } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import type { MouseEvent } from 'react';
 import { AddIcon } from '@chakra-ui/icons';
 import {
@@ -12,49 +12,40 @@ import {
   useOutsideClick
 } from '@chakra-ui/react';
 import { ChatIcon } from '@chakra-ui/icons';
-import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/router';
-import { useLoading } from '@/hooks/useLoading';
-import { useUserStore } from '@/store/user';
 import { formatTimeToChatTime } from '@/utils/tools';
 import MyIcon from '@/components/Icon';
-import type { HistoryItemType, ExportChatType } from '@/types/chat';
+import type { ShareChatHistoryItemType, ExportChatType } from '@/types/chat';
 import { useChatStore } from '@/store/chat';
 import { useScreen } from '@/hooks/useScreen';
-import ModelList from './ModelList';
 
 import styles from '../index.module.scss';
 
 const PcSliderBar = ({
   isPcDevice,
   onclickDelHistory,
-  onclickExportChat
+  onclickExportChat,
+  onCloseSlider
 }: {
   isPcDevice: boolean;
-  onclickDelHistory: (historyId: string) => Promise<void>;
+  onclickDelHistory: (historyId: string) => void;
   onclickExportChat: (type: ExportChatType) => void;
+  onCloseSlider: () => void;
 }) => {
   const router = useRouter();
-  const { modelId = '', chatId = '' } = router.query as { modelId: string; chatId: string };
+  const { shareId = '', historyId = '' } = router.query as { shareId: string; historyId: string };
   const theme = useTheme();
   const { isPc } = useScreen({ defaultIsPc: isPcDevice });
 
   const ContextMenuRef = useRef(null);
 
-  const { Loading, setIsLoading } = useLoading();
   const [contextMenuData, setContextMenuData] = useState<{
     left: number;
     top: number;
-    history: HistoryItemType;
+    history: ShareChatHistoryItemType;
   }>();
 
-  const { history, loadHistory } = useChatStore();
-  const { myModels, myCollectionModels, loadMyModels } = useUserStore();
-  const models = useMemo(
-    () => [...myModels, ...myCollectionModels],
-    [myCollectionModels, myModels]
-  );
-  useQuery(['loadModels'], () => loadMyModels(false));
+  const { shareChatHistory } = useChatStore();
 
   // close contextMenu
   useOutsideClick({
@@ -65,12 +56,8 @@ const PcSliderBar = ({
       })
   });
 
-  const { isLoading: isLoadingHistory } = useQuery(['loadingHistory'], () =>
-    loadHistory({ pageNum: 1 })
-  );
-
   const onclickContextMenu = useCallback(
-    (e: MouseEvent<HTMLDivElement>, history: HistoryItemType) => {
+    (e: MouseEvent<HTMLDivElement>, history: ShareChatHistoryItemType) => {
       e.preventDefault(); // 阻止默认右键菜单
 
       if (!isPc) return;
@@ -84,6 +71,16 @@ const PcSliderBar = ({
     [isPc]
   );
 
+  const replaceChatPage = useCallback(
+    ({ hId = '', shareId }: { hId?: string; shareId: string }) => {
+      if (hId === historyId) return;
+
+      router.replace(`/chat/share?shareId=${shareId}&historyId=${hId}`);
+      !isPc && onCloseSlider();
+    },
+    [historyId, isPc, onCloseSlider, router]
+  );
+
   return (
     <Flex
       position={'relative'}
@@ -94,51 +91,29 @@ const PcSliderBar = ({
       borderRight={['', theme.borders.base]}
     >
       {/* 新对话 */}
-      {isPc && (
-        <Box
-          className={styles.newChat}
-          zIndex={1001}
-          w={'90%'}
-          h={'40px'}
-          my={5}
-          mx={'auto'}
-          position={'relative'}
+      <Box
+        className={styles.newChat}
+        zIndex={1000}
+        w={'90%'}
+        h={'40px'}
+        my={5}
+        mx={'auto'}
+        position={'relative'}
+      >
+        <Button
+          variant={'base'}
+          w={'100%'}
+          h={'100%'}
+          leftIcon={<AddIcon />}
+          onClick={() => replaceChatPage({ shareId })}
         >
-          <Button
-            variant={'base'}
-            w={'100%'}
-            h={'100%'}
-            leftIcon={<AddIcon />}
-            onClick={() => router.replace(`/chat?modelId=${modelId}`)}
-          >
-            新对话
-          </Button>
-          {models.length > 1 && (
-            <Box
-              className={styles.modelListContainer}
-              position={'absolute'}
-              w={'115%'}
-              left={0}
-              top={'40px'}
-              transition={'0.15s ease-out'}
-              bg={'white'}
-            >
-              <Box
-                className={styles.modelList}
-                mt={'6px'}
-                h={'calc(100% - 6px)'}
-                overflow={'overlay'}
-              >
-                <ModelList models={models} modelId={modelId} />
-              </Box>
-            </Box>
-          )}
-        </Box>
-      )}
+          新对话
+        </Button>
+      </Box>
 
       {/* chat history */}
       <Box flex={'1 0 0'} h={0} overflow={'overlay'}>
-        {history.map((item) => (
+        {shareChatHistory.map((item) => (
           <Flex
             position={'relative'}
             key={item._id}
@@ -153,20 +128,13 @@ const PcSliderBar = ({
             _hover={{
               backgroundColor: ['', '#dee0e3']
             }}
-            {...(item._id === chatId
+            {...(item._id === historyId
               ? {
                   backgroundColor: '#eff0f1',
                   borderLeftColor: 'myBlue.600 !important'
                 }
               : {})}
-            onClick={() => {
-              if (item._id === chatId) return;
-              if (isPc) {
-                router.replace(`/chat?modelId=${item.modelId}&chatId=${item._id}`);
-              } else {
-                router.push(`/chat?modelId=${item.modelId}&chatId=${item._id}`);
-              }
-            }}
+            onClick={() => replaceChatPage({ hId: item._id, shareId: item.shareId })}
             onContextMenu={(e) => onclickContextMenu(e, item)}
           >
             <ChatIcon fontSize={'16px'} color={'myGray.500'} />
@@ -189,21 +157,16 @@ const PcSliderBar = ({
                 px={3}
                 name={'delete'}
                 w={'16px'}
-                onClickCapture={async (e) => {
+                onClickCapture={(e) => {
                   e.stopPropagation();
-                  setIsLoading(true);
-                  try {
-                    await onclickDelHistory(item._id);
-                  } catch (error) {
-                    console.log(error);
-                  }
-                  setIsLoading(false);
+                  onclickDelHistory(item._id);
+                  item._id === historyId && replaceChatPage({ shareId: item.shareId });
                 }}
               />
             )}
           </Flex>
         ))}
-        {!isLoadingHistory && history.length === 0 && (
+        {shareChatHistory.length === 0 && (
           <Flex h={'100%'} flexDirection={'column'} alignItems={'center'} pt={'30vh'}>
             <MyIcon name="empty" w={'48px'} h={'48px'} color={'transparent'} />
             <Box mt={2} color={'myGray.500'}>
@@ -219,17 +182,9 @@ const PcSliderBar = ({
           <Menu isOpen>
             <MenuList>
               <MenuItem
-                onClick={async () => {
-                  setIsLoading(true);
-                  try {
-                    await onclickDelHistory(contextMenuData.history._id);
-                    if (contextMenuData.history._id === chatId) {
-                      router.replace(`/chat?modelId=${modelId}`);
-                    }
-                  } catch (error) {
-                    console.log(error);
-                  }
-                  setIsLoading(false);
+                onClick={() => {
+                  onclickDelHistory(contextMenuData.history._id);
+                  contextMenuData.history._id === historyId && replaceChatPage({ shareId });
                 }}
               >
                 删除记录
@@ -241,8 +196,6 @@ const PcSliderBar = ({
           </Menu>
         </Box>
       )}
-
-      <Loading loading={isLoadingHistory} fixed={false} />
     </Flex>
   );
 };
