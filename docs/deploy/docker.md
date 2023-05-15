@@ -1,4 +1,4 @@
-# Docker 部署 FastGpt
+# Docker 部署 MossAI
 
 ## 代理环境（国外服务器可忽略）
 
